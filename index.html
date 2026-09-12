@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101411">
+  <meta name="description" content="A private, browser-based stereo metronome. Set your tempo and tone, then alternate each click between left and right.">
+  <title>Alterna - Stereo Metronome (Mobile update)</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23101411'/%3E%3Cpath d='M18 25v14M32 16v32M46 25v14' stroke='%23d1f59a' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101411;
+      --surface: #191e1a;
+      --inner: #131814;
+      --line: #303930;
+      --muted: #a0ac9e;
+      --text: #f1f4eb;
+      --accent: #d1f59a;
+      --accent-ink: #202c17;
+      --radius: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 300px; background: var(--bg); color: var(--text); }
+    button, input, select { font: inherit; }
+    button, select, input[type="range"], input[type="checkbox"] { cursor: pointer; }
+    button, summary { -webkit-tap-highlight-color: transparent; }
+    button { border: 1px solid var(--line); background: transparent; color: var(--text); }
+    button:hover:not(:disabled) { background: #2c342b; border-color: #617054; }
+    button:disabled { opacity: .42; cursor: not-allowed; }
+    button, input, select, summary { touch-action: manipulation; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    input:focus-visible, select:focus-visible { outline-offset: 2px; }
+    [hidden] { display: none !important; }
+    svg { display: block; flex-shrink: 0; }
+    .shell { width: min(1100px, calc(100% - 64px)); margin: 0 auto; padding-bottom: 30px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; height: 100px; border-bottom: 1px solid var(--line); gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 25px; letter-spacing: -1.2px; font-weight: 700; }
+    .brand svg { color: var(--accent); }
+    .brand small { font-size: 10px; font-weight: 500; letter-spacing: 1.7px; color: var(--muted); margin-left: 12px; padding-left: 22px; border-left: 1px solid var(--line); }
+    .local { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .local svg { color: var(--accent); }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 38px 0 28px; }
+    .eyebrow { margin: 0 0 12px; color: var(--accent); font-size: 10px; letter-spacing: 2.2px; font-weight: 600; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(30px, 4.2vw, 48px); font-weight: 520; letter-spacing: -1.9px; line-height: 1.1; }
+    .intro p:not(.eyebrow) { color: var(--muted); margin: 0 0 2px; font-size: 13px; line-height: 1.6; max-width: 270px; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; gap: 20px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    .tempo-panel { padding: 27px 30px 22px; }
+    .panel-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .section-label { font-size: 10px; letter-spacing: 1.8px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+    .status { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+    .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #75806f; }
+    body[data-playing="true"] .status::before { background: var(--accent); box-shadow: 0 0 10px #d1f59330; }
+    body[data-playing="true"] .status { color: var(--accent); }
+    .tempo-control { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 23px; }
+    .step { width: 42px; height: 42px; border-radius: 50%; font-size: 23px; font-weight: 300; flex-shrink: 0; }
+    .tempo-value { width: min(270px, 70%); text-align: center; }
+    #bpm { background: transparent; border: 0; color: var(--text); text-align: center; font-size: clamp(64px, 7vw, 94px); font-weight: 450; letter-spacing: -6px; width: 100%; line-height: 1.1; padding: 0; border-radius: 12px; font-variant-numeric: tabular-nums; }
+    #bpm.compact-number { font-size: clamp(42px, 5vw, 66px); letter-spacing: -3px; }
+    input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+    input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .tempo-value label { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 2.2px; margin-top: 6px; }
+    .tempo-slider { margin: 25px 0 18px; }
+    input[type="range"] { --fill: 15%; appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 25px; margin: 2px 0; border-radius: 8px; background: transparent; border: 0; }
+    input[type="range"]::-webkit-slider-runnable-track { height: 5px; border-radius: 8px; background: linear-gradient(to right, var(--accent) 0 var(--fill), #3a4436 var(--fill) 100%); }
+    input[type="range"]::-moz-range-track { height: 5px; border-radius: 8px; background: linear-gradient(to right, var(--accent) 0 var(--fill), #3a4436 var(--fill) 100%); }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; margin-top: -6px; width: 17px; height: 17px; border: 3px solid var(--surface); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: 3px solid var(--surface); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .range-labels { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; margin-top: 13px; }
+    .preset-row { display: grid; grid-template-columns: repeat(4, 1fr) 1.35fr; gap: 7px; }
+    .preset-row button { font-size: 12px; border-radius: 9px; min-height: 38px; }
+    .preset-row button[aria-pressed="true"] { color: var(--accent); border-color: #627448; background: #273121; }
+    .preset-row #tap { color: var(--accent); }
+    .rate-line { margin: 16px 0 24px; display: flex; justify-content: space-between; gap: 12px; align-items: center; color: var(--muted); font-size: 11px; }
+    .rate-input { display: flex; align-items: center; gap: 7px; }
+    #rate { width: 62px; border: 1px solid var(--line); border-radius: 7px; color: var(--text); background: var(--inner); padding: 7px 5px; font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+    #tapHint { min-height: 14px; color: var(--muted); margin: 9px 0 -7px; font-size: 10px; text-align: right; }
+    .stereo-monitor { position: relative; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 17px; background: var(--inner); overflow: hidden; }
+    .channel { padding: 21px 12px 16px; text-align: center; position: relative; }
+    .channel + .channel { border-left: 1px solid var(--line); }
+    .channel-id { height: 56px; width: 56px; margin: 0 auto 12px; border: 1px solid #46523e; border-radius: 50%; display: grid; place-items: center; color: #bac8af; font-size: 23px; font-weight: 400; transition: border-color 70ms, color 70ms, background 70ms; }
+    .channel.is-active .channel-id { border-color: var(--accent); color: var(--accent); background: #273222; }
+    .channel-label { color: var(--muted); font-size: 9px; letter-spacing: 1.7px; text-transform: uppercase; }
+    .channel-meter { display: flex; justify-content: center; align-items: center; gap: 4px; height: 22px; margin-top: 10px; }
+    .channel-meter i { width: 3px; height: 4px; background: #46523e; border-radius: 2px; transition: height 90ms; }
+    .channel.is-active .channel-meter i { background: #a6bd83; height: var(--h, 12px); }
+    .monitor-badge { position: absolute; top: 47px; left: 50%; transform: translateX(-50%); border: 1px solid var(--line); border-radius: 50%; width: 26px; height: 26px; display: grid; place-items: center; color: var(--muted); background: var(--inner); font-size: 13px; }
+    .monitor-caption { display: flex; justify-content: space-between; gap: 12px; margin: 11px 2px 21px; color: var(--muted); font-size: 10px; }
+    #patternLabel { color: #c0cdb4; }
+    .transport { width: 100%; border: 1px solid var(--accent); border-radius: 12px; min-height: 55px; background: var(--accent); color: var(--accent-ink); display: flex; justify-content: center; align-items: center; gap: 11px; font-size: 14px; font-weight: 650; }
+    .transport:hover:not(:disabled) { background: #e1ffb5; border-color: #e1ffb5; }
+    body[data-playing="true"] .transport { background: #2d3824; border-color: #8d9f73; color: var(--accent); }
+    body[data-playing="true"] .transport:hover { background: #3d4a31; }
+    .session { display: flex; align-items: center; justify-content: center; gap: 30px; margin-top: 20px; color: var(--muted); font-size: 10px; }
+    .session span { display: inline-flex; align-items: center; gap: 8px; }
+    .session strong { font-size: 12px; color: var(--text); font-weight: 450; font-variant-numeric: tabular-nums; }
+    .session .divider { height: 15px; width: 1px; background: var(--line); }
+    .shortcuts { margin: 20px 0 0; text-align: center; color: var(--muted); font-size: 10px; }
+    kbd { font: inherit; font-size: 9px; padding: 3px 5px; border: 1px solid #424c3e; border-radius: 4px; margin: 0 2px; color: #c1cbb9; }
+    .right-column { display: grid; gap: 16px; }
+    .settings-panel { padding: 26px 26px 21px; }
+    .settings-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    h2 { font-size: 17px; font-weight: 530; letter-spacing: -.4px; margin: 0; }
+    .settings-title svg { color: var(--muted); }
+    .control { margin-top: 19px; }
+    .control:first-of-type { margin-top: 0; }
+    .control-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 24px; }
+    label, .field-label { font-size: 12px; color: #dce3d5; }
+    select { appearance: auto; border: 1px solid #424d3b; background: var(--inner); color: var(--text); border-radius: 8px; min-height: 41px; padding: 9px 11px; width: 100%; font-size: 12px; }
+    .mode-select { margin-top: 10px; }
+    .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .two-up label { display: block; color: var(--muted); font-size: 10px; margin-bottom: 7px; }
+    .two-up select { min-height: 36px; padding: 7px 8px; font-size: 11px; }
+    .small-value { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: 11px; font-variant-numeric: tabular-nums; }
+    #pitch { border: 1px solid var(--line); border-radius: 6px; background: var(--inner); padding: 5px 4px; color: var(--accent); width: 59px; text-align: right; font-size: 12px; }
+    .rule { height: 1px; background: var(--line); margin: 23px 0 21px; }
+    .help { margin: 11px 0 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+    .volume-top { display: flex; align-items: center; gap: 8px; }
+    #mute { display: flex; align-items: center; justify-content: center; min-height: 28px; min-width: 47px; font-size: 10px; border-radius: 6px; padding: 4px 8px; }
+    #mute[aria-pressed="true"] { color: var(--accent); border-color: #758655; }
+    .advanced { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 17px; }
+    summary { color: var(--muted); font-size: 11px; cursor: pointer; }
+    details[open] summary { color: var(--text); margin-bottom: 15px; }
+    .check-row { display: flex; align-items: center; gap: 8px; margin: 14px 0; }
+    .check-row label { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
+    .reset { font-size: 10px; padding: 8px 11px; border-radius: 7px; }
+    .headphones { border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: flex; align-items: flex-start; gap: 13px; }
+    .headphones > svg { color: var(--accent); margin-top: 2px; }
+    .headphones h3 { margin: 0 0 7px; font-size: 12px; font-weight: 550; }
+    .headphones p { color: var(--muted); margin: 0; font-size: 10px; line-height: 1.7; }
+    .tests { display: flex; gap: 8px; margin-top: 13px; }
+    .tests button { min-height: 33px; padding: 7px 12px; border-radius: 7px; font-size: 10px; display: flex; align-items: center; gap: 6px; }
+    .message { margin-top: 17px; border: 1px solid #6a7651; background: #222a1c; border-radius: 11px; padding: 12px 15px; font-size: 12px; line-height: 1.5; color: #e3edd8; }
+    .message[data-error="true"] { border-color: #97704d; background: #2a221a; color: #ffe0be; }
+    footer { display: flex; justify-content: space-between; gap: 20px; padding-top: 22px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+    footer span:last-child { text-align: right; }
+    noscript p { background: #422c20; padding: 20px; border-radius: 12px; }
+    .startup-notice { border: 1px solid #97704d; border-radius: 12px; padding: 15px; margin: 20px 0; background: #2a221a; color: #ffe0be; font-size: 13px; line-height: 1.6; }
+    .startup-notice p { margin: 5px 0 0; }
+    .audio-tools { margin-top: 12px; }
+    .audio-tools summary { min-height: 35px; padding: 9px 0; }
+    .audio-tools button { min-height: 44px; padding: 10px 15px; margin-top: 10px; border-radius: 8px; font-size: 12px; }
+    .audio-diagnostics { overflow-wrap: anywhere; }
+    #message { margin-top: 12px; }
+    @media (pointer: coarse) {
+      button, .step, .tests button, .preset-row button, #mute { min-height: 44px; }
+      .step { min-width: 44px; }
+      input[type="range"] { height: 42px; }
+      input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -10px; }
+      input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; }
+    }
+    @media (min-width: 1100px) { .tempo-panel { padding-left: 36px; padding-right: 36px; } }
+    @media (max-width: 760px) {
+      .shell { width: min(560px, calc(100% - 32px)); }
+      .topbar { height: 77px; }
+      .brand { font-size: 23px; }
+      .brand small { display: none; }
+      .local { font-size: 10px; }
+      .intro { display: block; padding: 30px 0 23px; }
+      .intro p:not(.eyebrow) { margin: 13px 0 0; max-width: none; font-size: 12px; }
+      h1 { letter-spacing: -1.2px; font-size: 35px; }
+      .workspace { grid-template-columns: 1fr; gap: 16px; }
+      .tempo-panel { padding: 24px 23px; }
+      #bpm { font-size: 89px; }
+      .settings-panel { padding: 24px; }
+      #pitch, #rate, select, .two-up select { font-size: 16px; }
+      #pitch { width: 68px; }
+      footer { display: block; }
+      footer span { display: block; }
+      footer span:last-child { text-align: left; margin-top: 5px; }
+      .shortcuts { display: none; }
+    }
+    @media (max-width: 370px) {
+      .shell { width: calc(100% - 24px); }
+      h1 { font-size: 30px; }
+      .tempo-panel, .settings-panel { padding: 21px 18px; }
+      #bpm { font-size: 74px; }
+      .tempo-control { gap: 3px; }
+      .step { width: 36px; height: 36px; }
+      .rate-line { gap: 6px; font-size: 10px; }
+      .session { gap: 20px; }
+      .preset-row { gap: 5px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body data-playing="false">
+  <div class="shell">
+    <div id="bootNotice" class="startup-notice" role="alert">
+      <strong>This page has not started.</strong>
+      <p>If this notice remains visible, JavaScript is blocked or failed to load. An HTML file preview is not a working website. Serve this file as a web page and open its address in Safari or Chrome.</p>
+    </div>
+    <header class="topbar">
+      <div class="brand">
+        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true"><path d="M5 11v8M15 5v20M25 11v8" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+        alterna<span style="color:var(--accent);margin-left:-10px">.</span><small>STEREO METRONOME</small>
+      </div>
+      <div class="local"><svg width="13" height="15" viewBox="0 0 16 18" fill="none" aria-hidden="true"><path d="M8 1 2 3.5v5C2 12 4.3 15 8 17c3.7-2 6-5 6-8.5v-5L8 1Z" stroke="currentColor"/><path d="m5 9 2 2 4-4" stroke="currentColor"/></svg>Audio stays on your device</div>
+    </header>
+    <main>
+      <section class="intro" aria-labelledby="pageTitle">
+        <div><p class="eyebrow">Find your own rhythm</p><h1 id="pageTitle">One beat. Both sides.</h1></div>
+        <p>Set the pace. Shape the sound.<br>Let each click move from left to right.</p>
+      </section>
+      <noscript><p>JavaScript is disabled here. This preview cannot generate sound. Open the hosted website in a browser with JavaScript enabled.</p></noscript>
+      <div class="workspace">
+        <section class="panel tempo-panel" aria-label="Tempo and playback">
+          <div class="panel-top"><span class="section-label">The pulse</span><span id="status" class="status" role="status">Ready when you are</span></div>
+          <div class="tempo-control">
+            <button id="slower" class="step" type="button" aria-label="Decrease tempo by 1 BPM">&minus;</button>
+            <div class="tempo-value"><input id="bpm" type="number" min="6" max="600" step="any" value="90" inputmode="decimal" aria-describedby="tempoHelp"><label for="bpm">Beats per minute</label></div>
+            <button id="faster" class="step" type="button" aria-label="Increase tempo by 1 BPM">+</button>
+          </div>
+          <div class="tempo-slider"><input id="bpmSlider" type="range" min="6" max="600" step="0.1" value="90" aria-label="Tempo in beats per minute"><div class="range-labels"><span>6 BPM</span><span>600 BPM</span></div></div>
+          <div class="preset-row" aria-label="Tempo presets">
+            <button type="button" data-bpm="60" aria-pressed="false">60</button><button type="button" data-bpm="90" aria-pressed="true">90</button><button type="button" data-bpm="120" aria-pressed="false">120</button><button type="button" data-bpm="180" aria-pressed="false">180</button><button id="tap" type="button" title="Tap at least twice, or press T">Tap tempo</button>
+          </div>
+          <p id="tapHint" aria-live="polite">Tap your own pace</p>
+          <div class="rate-line" id="tempoHelp"><div class="rate-input"><label for="rate">Beat rate</label><input id="rate" type="number" min="0.1" max="10" step="any" value="1.5" inputmode="decimal" title="Total clicks per second, across both channels" aria-label="Beat frequency in total clicks per second"><span>Hz</span></div><span id="interval">One click every 667 ms</span></div>
+          <div class="stereo-monitor" aria-label="Left and right channel visual indicators">
+            <div class="channel" id="leftChannel"><div class="channel-id">L</div><span class="channel-label">Left channel</span><div class="channel-meter" aria-hidden="true"><i style="--h:6px"></i><i style="--h:11px"></i><i style="--h:19px"></i><i style="--h:13px"></i><i style="--h:21px"></i><i style="--h:10px"></i><i style="--h:6px"></i></div></div>
+            <div class="channel" id="rightChannel"><div class="channel-id">R</div><span class="channel-label">Right channel</span><div class="channel-meter" aria-hidden="true"><i style="--h:6px"></i><i style="--h:10px"></i><i style="--h:21px"></i><i style="--h:13px"></i><i style="--h:19px"></i><i style="--h:11px"></i><i style="--h:6px"></i></div></div>
+            <div class="monitor-badge" aria-hidden="true">&#8596;</div>
+          </div>
+          <div class="monitor-caption"><span id="patternLabel">L &#8594; R &#8594; L &#8594; R</span><span id="widthCaption">Full stereo separation</span></div>
+          <button id="transport" class="transport" type="button" aria-pressed="false"><svg id="playIcon" width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M2 1.5v15L15 9 2 1.5Z" fill="currentColor"/></svg><svg id="stopIcon" width="14" height="14" viewBox="0 0 14 14" hidden aria-hidden="true"><rect width="14" height="14" rx="2" fill="currentColor"/></svg><span id="transportLabel">Start metronome</span></button>
+          <div id="message" class="message" role="status" aria-live="polite" hidden></div>
+          <details class="audio-tools" id="audioHelp">
+            <summary>No sound? Check or restart audio</summary>
+            <p class="help">Use your phone's media-volume buttons and check the selected speaker or headphones. On older iPhones, also try turning Silent Mode off. This app needs a live browser page, not a downloaded-file preview.</p>
+            <button id="restartAudio" type="button">Restart audio &amp; play</button>
+            <p id="audioDiagnostics" class="help audio-diagnostics" aria-live="polite">JavaScript: not started.</p>
+          </details>
+          <div class="session"><span>SESSION <strong id="elapsed">00:00</strong></span><i class="divider" aria-hidden="true"></i><span>CLICKS <strong id="clickCount">0</strong></span></div>
+          <p class="shortcuts"><kbd>Space</kbd> start / stop &nbsp;&nbsp;&middot;&nbsp;&nbsp; <kbd>T</kbd> tap tempo &nbsp;&nbsp;&middot;&nbsp;&nbsp; <kbd>Esc</kbd> stop</p>
+        </section>
+        <div class="right-column">
+          <section class="panel settings-panel" aria-labelledby="settingsTitle">
+            <div class="settings-title"><h2 id="settingsTitle">Sound &amp; stereo</h2><svg width="19" height="19" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 2v16M10 2v16M16 2v16" stroke="currentColor"/><path d="M1 7h6M7 13h6M13 6h6" stroke="currentColor" stroke-width="3"/></svg></div>
+            <div class="control"><label for="mode">Playback pattern</label><select id="mode" class="mode-select"><option value="alternate">Alternate left &amp; right</option><option value="both">Both channels together</option><option value="left">Left channel only</option><option value="right">Right channel only</option></select></div>
+            <div class="two-up" id="alternateOptions"><div><label for="firstSide">Start on</label><select id="firstSide"><option value="left">Left</option><option value="right">Right</option></select></div><div><label for="switchEvery">Switch after</label><select id="switchEvery"><option value="1">Every click</option><option value="2">2 clicks</option><option value="4">4 clicks</option><option value="8">8 clicks</option></select></div></div>
+            <div class="control" id="widthControl"><div class="control-top"><label for="width">Stereo width</label><output id="widthValue" class="small-value" for="width">100%</output></div><input id="width" type="range" min="0" max="100" step="1" value="100"><div class="range-labels"><span>Centered</span><span>Separated</span></div></div>
+            <div class="rule"></div>
+            <div class="control"><div class="control-top"><label for="pitch">Tone frequency</label><div class="small-value"><input id="pitch" type="number" min="80" max="4000" step="1" value="880" inputmode="numeric" aria-describedby="pitchHelp"><span>Hz</span></div></div><input id="pitchSlider" type="range" min="80" max="4000" step="1" value="880" aria-label="Tone frequency in hertz"><div class="range-labels"><span>80 Hz &middot; lower</span><span>4,000 Hz &middot; higher</span></div><p class="help" id="pitchHelp">Pitch changes the sound. Beat rate changes the timing.</p></div>
+            <div class="control"><div class="control-top"><label for="volume">Volume</label><div class="volume-top"><output id="volumeValue" class="small-value" for="volume">35%</output><button id="mute" type="button" aria-pressed="false" aria-label="Mute audio">Mute</button></div></div><input id="volume" type="range" min="0" max="100" step="1" value="35"></div>
+            <details class="advanced"><summary>Fine-tune your clicks</summary>
+              <div class="control"><label for="waveform">Tone shape</label><select id="waveform" class="mode-select"><option value="sine">Sine &middot; soft</option><option value="triangle">Triangle &middot; rounded</option><option value="square">Square &middot; bright</option></select></div>
+              <div class="control"><div class="control-top"><label for="duration">Click length</label><output id="durationValue" class="small-value" for="duration">45 ms</output></div><input id="duration" type="range" min="10" max="80" step="1" value="45"><div class="range-labels"><span>10 ms &middot; short</span><span>80 ms &middot; long</span></div></div>
+              <div class="check-row"><input id="visuals" type="checkbox" checked><label for="visuals">Show visual pulses</label></div>
+              <div class="check-row"><input id="pauseHidden" type="checkbox" checked><label for="pauseHidden">Stop when I switch tabs or apps</label></div>
+              <p class="help">Background and locked-screen playback may be interrupted by your browser. Keep this page visible for dependable timing.</p>
+              <button id="reset" class="reset" type="button" style="margin-top:14px">Reset all settings</button>
+            </details>
+          </section>
+          <aside class="headphones" aria-labelledby="headphonesTitle"><svg width="21" height="24" viewBox="0 0 24 26" fill="none" aria-hidden="true"><path d="M3 17V11a9 9 0 0 1 18 0v6" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="13" width="5" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><rect x="17" y="13" width="5" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/></svg><div><h3 id="headphonesTitle">Check your left &amp; right</h3><p>Use stereo headphones or speakers, with mono audio off. Start at a comfortable volume.</p><div class="tests"><button id="testLeft" type="button" aria-label="Play a test click in the left channel">&#9666; Test left</button><button id="testRight" type="button" aria-label="Play a test click in the right channel">Test right &#9656;</button></div></div></aside>
+        </div>
+      </div>
+    </main>
+    <footer><span>Made of sound, not samples. No accounts or external libraries.</span><span id="saveStatus">No external libraries &middot; Mobile update 1.1</span></footer>
+  </div>
+  <script>
+    "use strict";
+
+    /*
+     * Alterna - a single-file, dependency-free stereo metronome.
+     * Audio: Oscillator -> envelope -> stereo router -> master Gain -> output.
+     * A short look-ahead scheduler queues clicks against AudioContext.currentTime.
+     * JavaScript timers wake the scheduler; they do NOT determine audio onset times.
+     * Source references:
+     * https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Advanced_techniques
+     * https://developer.mozilla.org/en-US/docs/Web/API/StereoPannerNode/pan
+     * https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay
+     * https://developer.mozilla.org/en-US/docs/Web/API/AudioSession
+     * https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/state
+     * Mobile: resume and a silent buffer are started in the original user gesture.
+     * Never autoplay after interruptions. Rebuild the context on the next tap.
+     */
+
+    /** Return a pan value: -1 = left, 0 = centered, +1 = right. */
+    function panForBeat(index, settings) {
+      if (settings.mode === "left") return -1;
+      if (settings.mode === "right") return 1;
+      if (settings.mode === "both") return 0;
+      const first = settings.firstSide === "left" ? -1 : 1;
+      const sign = Math.floor(index / settings.switchEvery) % 2 === 0 ? first : -first;
+      return sign * settings.width / 100;
+    }
+
+    /** Build one short, amplitude-shaped click. Works in an OfflineAudioContext too. */
+    function synthesizeClick(context, destination, when, pan, settings) {
+      const oscillator = context.createOscillator();
+      const envelope = context.createGain();
+      // ChannelMerger fallback also works in browsers without StereoPannerNode.
+      let panner;
+      let extraNodes = [];
+      if (typeof context.createStereoPanner === "function") {
+        panner = context.createStereoPanner();
+        panner.pan.setValueAtTime(pan, when);
+        envelope.connect(panner);
+      } else {
+        panner = context.createChannelMerger(2);
+        const left = context.createGain();
+        const right = context.createGain();
+        const angle = (pan + 1) * Math.PI / 4;
+        left.gain.value = pan >= 1 ? 0 : Math.cos(angle);
+        right.gain.value = pan <= -1 ? 0 : Math.sin(angle);
+        envelope.connect(left);
+        envelope.connect(right);
+        left.connect(panner, 0, 0);
+        right.connect(panner, 0, 1);
+        extraNodes = [left, right];
+      }
+      panner.connect(destination);
+      const length = settings.duration / 1000;
+      const attack = Math.min(0.003, length / 5);
+      const peak = settings.waveform === "square" ? 0.28 : 0.5;
+      oscillator.type = settings.waveform;
+      oscillator.frequency.setValueAtTime(settings.pitch, when);
+      // A zero-to-peak attack and a zero-ended release avoid abrupt waveform cuts.
+      envelope.gain.setValueAtTime(0, when);
+      envelope.gain.linearRampToValueAtTime(peak, when + attack);
+      envelope.gain.exponentialRampToValueAtTime(0.001, when + length * 0.88);
+      envelope.gain.linearRampToValueAtTime(0, when + length);
+      oscillator.connect(envelope);
+      oscillator.start(when);
+      oscillator.stop(when + length + 0.002);
+      return { oscillator, envelope, panner, extraNodes, when, end: when + length + 0.002 };
+    }
+
+    class MetronomeAudio {
+      constructor({ onBeat, onStop, onError }) {
+        this.onBeat = onBeat;
+        this.onStop = onStop;
+        this.onError = onError;
+        this.context = null;
+        this.master = null;
+        this.running = false;
+        this.starting = false;
+        this.token = 0;
+        this.voices = new Set();
+        this.queue = [];
+        this.timer = null;
+        this.frame = null;
+        this.settings = null;
+        this.nextTime = 0;
+        this.index = 0;
+        this.sequenceOrigin = 0;
+        this.lastTime = null;
+        this.startedAt = 0;
+        this.count = 0;
+        this.needsRebuild = false;
+        this.clockAt = 0;
+        this.clockAdvancedAt = 0;
+      }
+
+      discardContext() {
+        // Deliberately synchronous: the next resume() must retain the user's tap.
+        const old = this.context;
+        this.context = null;
+        this.master = null;
+        this.needsRebuild = false;
+        for (const voice of this.voices) {
+          try { voice.oscillator.stop(); } catch (_) { /* Already stopped. */ }
+          this.disconnectVoice(voice);
+        }
+        this.voices.clear();
+        if (old && old.state !== "closed") {
+          try {
+            const closing = old.close();
+            if (closing && closing.catch) closing.catch(() => {});
+          } catch (_) { /* Some interrupted contexts cannot be closed. */ }
+        }
+      }
+
+      async ensureAudio() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) throw new Error("Web Audio is unavailable. Open the hosted page in Safari or Chrome, not in a file preview.");
+        // Feature-detect this experimental API. It is optional on Android/desktop.
+        // Playback is appropriate for a metronome; no microphone access is used.
+        try {
+          if (navigator.audioSession) navigator.audioSession.type = "playback";
+        } catch (_) { /* Browser uses its default audio policy. */ }
+        if (this.needsRebuild || (this.context && this.context.state === "interrupted")) this.discardContext();
+        if (!this.context || this.context.state === "closed") {
+          let context;
+          try { context = new AudioContextClass({ latencyHint: "interactive" }); }
+          catch (_) { context = new AudioContextClass(); }
+          this.context = context;
+          this.master = context.createGain();
+          this.master.gain.value = 0;
+          this.master.connect(context.destination);
+          context.addEventListener("statechange", () => {
+            if (context !== this.context) return; // Ignore events from a replaced context.
+            if (context.state === "interrupted" || context.state === "closed") this.needsRebuild = true;
+            if (this.running && context.state !== "running") {
+              this.stop("Audio was interrupted. Tap Start to reconnect. Keep the page visible while it plays.");
+            }
+          });
+        }
+        const context = this.context;
+        // Call both APIs BEFORE the first await, inside the user's click/touch gesture.
+        const resume = context.resume();
+        const unlock = context.createBufferSource();
+        unlock.buffer = context.createBuffer(2, 128, context.sampleRate);
+        unlock.connect(context.destination);
+        unlock.onended = () => unlock.disconnect();
+        unlock.start(0);
+        let timeout;
+        try {
+          await Promise.race([
+            resume,
+            new Promise((_, reject) => {
+              timeout = setTimeout(() => reject(new Error("Audio did not start. Tap Restart audio below. Use a normal Safari/Chrome page, not a file preview.")), 4000);
+            })
+          ]);
+          if (this.context !== context) throw new Error("Audio startup was cancelled.");
+          if (context.state !== "running") throw new Error("Audio is blocked or interrupted. Tap Restart audio and check your phone's media volume.");
+        } catch (error) {
+          if (this.context === context) this.needsRebuild = true;
+          throw error;
+        } finally { clearTimeout(timeout); }
+      }
+
+      setVolume(settings) {
+        if (!this.master || !this.context) return;
+        const value = settings.muted ? 0 : Math.pow(settings.volume / 100, 1.5);
+        const now = this.context.currentTime;
+        this.master.gain.cancelScheduledValues(now);
+        this.master.gain.setTargetAtTime(value, now, 0.008);
+      }
+
+      disconnectVoice(voice) {
+        for (const node of [voice.oscillator, voice.envelope, voice.panner, ...(voice.extraNodes || [])]) {
+          try { node.disconnect(); } catch (_) { /* Safe after cancellation. */ }
+        }
+      }
+
+      attachVoice(voice) {
+        this.voices.add(voice);
+        voice.oscillator.onended = () => {
+          this.disconnectVoice(voice);
+          this.voices.delete(voice);
+        };
+      }
+
+      cancelVoice(voice, now) {
+        // Disconnect immediately; cancelling only oscillator.stop() could leave a queued click.
+        voice.envelope.disconnect();
+        try { voice.oscillator.stop(now); } catch (_) { /* Already ended. */ }
+        this.disconnectVoice(voice);
+        this.voices.delete(voice);
+      }
+
+      async start(settings) {
+        if (this.running || this.starting) return false;
+        const token = ++this.token;
+        this.starting = true;
+        this.settings = { ...settings };
+        try {
+          await this.ensureAudio();
+          if (token !== this.token) return false;
+          if (this.settings.pauseHidden && document.hidden) {
+            this.stop("Keep this page visible, then tap Start.");
+            return false;
+          }
+          this.clockAt = this.context.currentTime;
+          this.clockAdvancedAt = performance.now();
+          this.running = true;
+          this.index = 0;
+          this.sequenceOrigin = 0;
+          this.count = 0;
+          this.lastTime = null;
+          this.queue.length = 0;
+          this.nextTime = this.context.currentTime + 0.035;
+          this.startedAt = this.nextTime;
+          this.setVolume(this.settings);
+          this.scheduler();
+          this.visualLoop();
+          return this.running;
+        } catch (error) {
+          if (token === this.token) {
+            this.stop();
+            this.onError(error.message || "Audio could not start.");
+          }
+          return false;
+        } finally { if (token === this.token) this.starting = false; }
+      }
+
+      scheduler() {
+        if (!this.running) return;
+        try {
+          const now = this.context.currentTime;
+          const wallNow = performance.now();
+          if (now > this.clockAt) {
+            this.clockAt = now;
+            this.clockAdvancedAt = wallNow;
+          } else if (!document.hidden && wallNow - this.clockAdvancedAt > 2000) {
+            // Safari can report running while its audio clock is stalled.
+            this.needsRebuild = true;
+            this.stop("The audio clock stopped. Tap Start or Restart audio to reconnect.");
+            return;
+          }
+          // rAF may pause in a hidden tab. Drain old visual events to bound memory.
+          if (document.hidden) {
+            while (this.queue.length && this.queue[0].time <= now) { this.queue.shift(); this.count++; }
+          }
+          // If the browser delayed us, restart the timeline rather than burst missed clicks.
+          if (this.nextTime < now) this.nextTime = now + 0.02;
+          while (this.nextTime < now + 0.1) {
+            const index = this.index++;
+            const pan = panForBeat(index - this.sequenceOrigin, this.settings);
+            const voice = synthesizeClick(this.context, this.master, this.nextTime, pan, this.settings);
+            voice.index = index;
+            this.attachVoice(voice);
+            this.queue.push({ time: this.nextTime, pan, index });
+            this.lastTime = this.nextTime;
+            this.nextTime += 60 / this.settings.bpm;
+          }
+          this.timer = setTimeout(() => this.scheduler(), 25);
+        } catch (error) {
+          this.stop();
+          this.onError(error.message || "An audio error occurred. Try starting again.");
+        }
+      }
+
+      outputTime() {
+        // Use the output timestamp when available to align flashes with speaker output.
+        if (this.context && typeof this.context.getOutputTimestamp === "function") {
+          const timestamp = this.context.getOutputTimestamp();
+          const age = (performance.now() - timestamp.performanceTime) / 1000;
+          if (timestamp.contextTime > 0 && age >= 0 && age < 0.25) {
+            return Math.min(this.context.currentTime, timestamp.contextTime + age);
+          }
+        }
+        const latency = (this.context.baseLatency || 0) + (this.context.outputLatency || 0);
+        return Math.max(0, this.context.currentTime - latency);
+      }
+
+      visualLoop() {
+        if (!this.running) return;
+        const now = this.outputTime();
+        let latest = null;
+        while (this.queue.length && this.queue[0].time <= now) {
+          latest = this.queue.shift();
+          this.count++;
+        }
+        this.onBeat(latest, this.count, Math.max(0, now - this.startedAt));
+        this.frame = requestAnimationFrame(() => this.visualLoop());
+      }
+
+      update(settings) {
+        const previous = this.settings;
+        this.settings = { ...settings };
+        this.setVolume(settings);
+        if (!this.running || !previous) return;
+        const timingOrToneChanged = ["bpm", "mode", "firstSide", "switchEvery", "width", "pitch", "duration", "waveform"]
+          .some(key => settings[key] !== previous[key]);
+        if (!timingOrToneChanged) return;
+        const now = this.context.currentTime;
+        // Replace not-yet-started clicks so live changes apply without a stale extra beat.
+        const future = [...this.voices].filter(voice => voice.when > now + 0.006);
+        let anchor = this.lastTime;
+        if (future.length) {
+          const first = future.reduce((a, b) => a.index < b.index ? a : b);
+          this.index = first.index;
+          anchor = first.index === 0 ? null : first.when - 60 / previous.bpm;
+          future.forEach(voice => this.cancelVoice(voice, now));
+          this.queue = this.queue.filter(beat => beat.index < first.index);
+        }
+        const routeChanged = ["mode", "firstSide", "switchEvery"].some(key => settings[key] !== previous[key]);
+        if (routeChanged) this.sequenceOrigin = this.index;
+        this.lastTime = anchor;
+        this.nextTime = anchor === null ? now + 0.035 : Math.max(now + 0.015, anchor + 60 / settings.bpm);
+        clearTimeout(this.timer);
+        this.scheduler();
+      }
+
+      stop(reason = "") {
+        ++this.token;
+        this.starting = false;
+        this.running = false;
+        clearTimeout(this.timer);
+        cancelAnimationFrame(this.frame);
+        this.queue.length = 0;
+        if (this.context && this.master) {
+          const now = this.context.currentTime;
+          this.master.gain.cancelScheduledValues(now);
+          this.master.gain.setTargetAtTime(0, now, 0.003);
+          for (const voice of this.voices) {
+            if (voice.when > now) this.cancelVoice(voice, now);
+            else {
+              // Stop audible clicks after a short fade rather than creating a cut-off pop.
+              try { voice.oscillator.stop(now + 0.02); } catch (_) { /* Already ended. */ }
+            }
+          }
+        }
+        this.onStop(reason);
+      }
+
+      async preview(side, settings) {
+        const token = this.token;
+        await this.ensureAudio();
+        if (this.running || this.starting || token !== this.token || document.hidden) return false;
+        this.setVolume(settings);
+        const voice = synthesizeClick(this.context, this.master, this.context.currentTime + 0.02, side === "left" ? -1 : 1, settings);
+        this.attachVoice(voice);
+        return true;
+      }
+    }
+
+    (() => {
+      const $ = id => document.getElementById(id);
+      window.addEventListener("error", event => {
+        const notice = $("bootNotice");
+        notice.textContent = "A script error stopped the page: " + (event.message || "unknown error") + ". Open the hosted page in Safari or Chrome.";
+        notice.hidden = false;
+      });
+      const DEFAULTS = Object.freeze({ bpm: 90, pitch: 880, volume: 35, width: 100, duration: 45, mode: "alternate", firstSide: "left", switchEvery: 1, waveform: "sine", muted: false, visuals: true, pauseHidden: true });
+      const STORAGE_KEY = "alterna.metronome.v1";
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const round = (value, places = 2) => Number(value.toFixed(places));
+      let settings = { ...DEFAULTS };
+      let saveTimer;
+      let flashTimer;
+      let tapTimes = [];
+      let testing = false;
+
+      function loadSettings() {
+        try {
+          const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          if (!data || typeof data !== "object") return;
+          const bounds = { bpm: [6, 600], pitch: [80, 4000], volume: [0, 100], width: [0, 100], duration: [10, 80] };
+          for (const [key, [min, max]] of Object.entries(bounds)) {
+            if (typeof data[key] === "number" && Number.isFinite(data[key])) settings[key] = round(clamp(data[key], min, max));
+          }
+          for (const [key, allowed] of Object.entries({ mode: ["alternate", "both", "left", "right"], firstSide: ["left", "right"], switchEvery: [1, 2, 4, 8], waveform: ["sine", "triangle", "square"] })) {
+            if (allowed.includes(data[key])) settings[key] = data[key];
+          }
+          for (const key of ["muted", "visuals", "pauseHidden"]) if (typeof data[key] === "boolean") settings[key] = data[key];
+        } catch (_) { $("saveStatus").textContent = "Settings storage is unavailable in this browser"; }
+      }
+
+      function saveSettings() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+            $("saveStatus").textContent = "Settings saved on this device \u00b7 Mobile update 1.1";
+          } catch (_) { $("saveStatus").textContent = "Settings could not be saved in this browser"; }
+        }, 180);
+      }
+
+      function message(text, error = false) {
+        $("message").textContent = text;
+        $("message").dataset.error = String(error);
+        $("message").hidden = !text;
+        if (error) $("audioHelp").open = true;
+      }
+
+      function diagnostics() {
+        const context = engine.context;
+        const protocol = location.protocol === "file:" ? "local file (previews may block scripts)" : location.protocol.replace(":", "");
+        let session = "browser default";
+        try { if (navigator.audioSession) session = navigator.audioSession.type; } catch (_) {}
+        $("audioDiagnostics").textContent = `JavaScript: running | Page: ${protocol} | Audio: ${context ? context.state : "not started"} | Session: ${session}`;
+      }
+
+      function paintRange(element) {
+        const position = (Number(element.value) - Number(element.min)) / (Number(element.max) - Number(element.min)) * 100;
+        element.style.setProperty("--fill", `${position}%`);
+      }
+
+      function setInput(id, value) {
+        // Do not disrupt caret position while a numeric field is being edited.
+        if (document.activeElement !== $(id)) $(id).value = String(value);
+      }
+
+      function render() {
+        setInput("bpm", settings.bpm);
+        $("bpm").classList.toggle("compact-number", String(settings.bpm).length > 4);
+        setInput("rate", round(settings.bpm / 60, 4));
+        setInput("pitch", settings.pitch);
+        $("bpmSlider").value = settings.bpm;
+        $("pitchSlider").value = settings.pitch;
+        for (const key of ["volume", "width", "duration", "mode", "firstSide", "switchEvery", "waveform"]) $(key).value = settings[key];
+        for (const key of ["visuals", "pauseHidden"]) $(key).checked = settings[key];
+        document.querySelectorAll('input[type="range"]').forEach(paintRange);
+        document.querySelectorAll("[data-bpm]").forEach(button => button.setAttribute("aria-pressed", String(Number(button.dataset.bpm) === settings.bpm)));
+        const interval = 60000 / settings.bpm;
+        $("interval").textContent = interval >= 1000 ? `One click every ${round(interval / 1000)} s` : `One click every ${Math.round(interval)} ms`;
+        $("widthValue").textContent = `${settings.width}%`;
+        $("volumeValue").textContent = settings.muted ? "Muted" : `${settings.volume}%`;
+        $("durationValue").textContent = `${settings.duration} ms`;
+        $("mute").textContent = settings.muted ? "Unmute" : "Mute";
+        $("mute").setAttribute("aria-pressed", String(settings.muted));
+        $("mute").setAttribute("aria-label", settings.muted ? "Unmute audio" : "Mute audio");
+        $("alternateOptions").hidden = settings.mode !== "alternate";
+        $("widthControl").hidden = settings.mode !== "alternate";
+        const first = settings.firstSide === "left" ? "L" : "R";
+        const second = first === "L" ? "R" : "L";
+        if (settings.mode === "alternate") {
+          $("patternLabel").textContent = settings.switchEvery === 1 ? `${first} \u2192 ${second} \u2192 ${first} \u2192 ${second}` : `${settings.switchEvery}\u00d7 ${first} \u2192 ${settings.switchEvery}\u00d7 ${second}`;
+          $("widthCaption").textContent = settings.width === 100 ? "Full stereo separation" : settings.width === 0 ? "Centered in both ears" : `${settings.width}% stereo width`;
+        } else {
+          $("patternLabel").textContent = { both: "L + R together", left: "L \u2192 L \u2192 L", right: "R \u2192 R \u2192 R" }[settings.mode];
+          $("widthCaption").textContent = settings.mode === "both" ? "Centered in both ears" : "Single channel";
+        }
+        $("bpmSlider").setAttribute("aria-valuetext", `${settings.bpm} beats per minute`);
+        $("pitchSlider").setAttribute("aria-valuetext", `${settings.pitch} hertz`);
+        if (!settings.visuals) clearFlash();
+        if (engine.running) $("status").textContent = settings.muted || settings.volume === 0 ? "Running \u00b7 muted" : "Playing";
+      }
+
+      function change(patch) {
+        settings = { ...settings, ...patch };
+        engine.update(settings);
+        render();
+        saveSettings();
+      }
+
+      function clearFlash() {
+        clearTimeout(flashTimer);
+        $("leftChannel").classList.remove("is-active");
+        $("rightChannel").classList.remove("is-active");
+      }
+
+      function flash(pan) {
+        clearFlash();
+        if (!settings.visuals) return;
+        // Partial pans contain signal in both ears; highlight both actual outputs.
+        $("leftChannel").classList.toggle("is-active", pan < 1);
+        $("rightChannel").classList.toggle("is-active", pan > -1);
+        flashTimer = setTimeout(clearFlash, Math.min(145, 60000 / settings.bpm * 0.6));
+      }
+
+      function playbackUI(playing) {
+        document.body.dataset.playing = String(playing);
+        $("transport").setAttribute("aria-pressed", String(playing));
+        $("transportLabel").textContent = playing ? "Stop metronome" : "Start metronome";
+        $("playIcon").toggleAttribute("hidden", playing);
+        $("stopIcon").toggleAttribute("hidden", !playing);
+        $("testLeft").disabled = playing || engine.starting;
+        $("testRight").disabled = playing || engine.starting;
+        $("status").textContent = playing ? (settings.muted || settings.volume === 0 ? "Running \u00b7 muted" : "Playing") : "Ready when you are";
+        diagnostics();
+      }
+
+      const engine = new MetronomeAudio({
+        onBeat(beat, count, elapsed) {
+          if (beat) flash(beat.pan);
+          $("clickCount").textContent = count.toLocaleString();
+          const seconds = Math.floor(elapsed);
+          const formatted = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+          if ($("elapsed").textContent !== formatted) $("elapsed").textContent = formatted;
+        },
+        onStop(reason) {
+          clearFlash();
+          playbackUI(false);
+          if (reason) message(reason);
+        },
+        onError(text) { message(text, true); diagnostics(); }
+      });
+
+      async function toggle() {
+        if (engine.running || engine.starting) { engine.stop(); return; }
+        message("");
+        // Numeric input blur events run before button clicks, committing typed values.
+        $("transportLabel").textContent = "Starting audio...";
+        $("testLeft").disabled = true;
+        $("testRight").disabled = true;
+        const started = await engine.start(settings);
+        if (started) {
+          $("elapsed").textContent = "00:00";
+          $("clickCount").textContent = "0";
+          if (settings.muted || settings.volume === 0) message("The metronome is running silently. Unmute or raise the volume to hear the clicks.");
+        }
+        playbackUI(engine.running);
+      }
+
+      function bindNumber(id, key, min, max, transform = value => value) {
+        const element = $(id);
+        const inverse = id === "rate" ? value => round(value / 60, 4) : value => value;
+        element.addEventListener("input", () => {
+          const value = element.valueAsNumber;
+          if (Number.isFinite(value) && value >= min && value <= max) change({ [key]: round(transform(value)) });
+        });
+        element.addEventListener("blur", () => {
+          const value = element.valueAsNumber;
+          if (Number.isFinite(value)) change({ [key]: round(transform(clamp(value, min, max))) });
+          element.value = inverse(settings[key]);
+        });
+        element.addEventListener("keydown", event => {
+          if (event.key === "Enter") { event.preventDefault(); element.blur(); }
+        });
+      }
+
+      bindNumber("bpm", "bpm", 6, 600);
+      bindNumber("rate", "bpm", 0.1, 10, value => value * 60);
+      bindNumber("pitch", "pitch", 80, 4000, Math.round);
+      $("bpmSlider").addEventListener("input", event => change({ bpm: Number(event.target.value) }));
+      $("pitchSlider").addEventListener("input", event => change({ pitch: Number(event.target.value) }));
+      for (const key of ["volume", "width", "duration"]) $(key).addEventListener("input", event => {
+        const patch = { [key]: Number(event.target.value) };
+        if (key === "volume" && patch.volume > 0) patch.muted = false;
+        change(patch);
+      });
+      for (const key of ["mode", "firstSide", "waveform"]) $(key).addEventListener("change", event => change({ [key]: event.target.value }));
+      $("switchEvery").addEventListener("change", event => change({ switchEvery: Number(event.target.value) }));
+      for (const key of ["visuals", "pauseHidden"]) $(key).addEventListener("change", event => change({ [key]: event.target.checked }));
+      $("mute").addEventListener("click", () => change({ muted: !settings.muted }));
+      $("slower").addEventListener("click", () => change({ bpm: round(clamp(settings.bpm - 1, 6, 600)) }));
+      $("faster").addEventListener("click", () => change({ bpm: round(clamp(settings.bpm + 1, 6, 600)) }));
+      document.querySelectorAll("[data-bpm]").forEach(button => button.addEventListener("click", () => change({ bpm: Number(button.dataset.bpm) })));
+      $("transport").addEventListener("click", toggle);
+      $("restartAudio").addEventListener("click", () => {
+        engine.stop();
+        engine.discardContext();
+        // toggle calls start -> ensureAudio without deferring the tap to a timer.
+        void toggle();
+      });
+
+      function tapTempo() {
+        const now = performance.now();
+        if (tapTimes.length && now - tapTimes[tapTimes.length - 1] > 11000) tapTimes = [];
+        if (tapTimes.length && now - tapTimes[tapTimes.length - 1] < 100) return;
+        tapTimes.push(now);
+        if (tapTimes.length > 6) tapTimes.shift();
+        if (tapTimes.length >= 2) {
+          const average = (now - tapTimes[0]) / (tapTimes.length - 1);
+          change({ bpm: round(clamp(60000 / average, 6, 600), 1) });
+          $("tapHint").textContent = `${settings.bpm} BPM from ${tapTimes.length} taps`;
+        } else $("tapHint").textContent = "Tap again to set your tempo";
+      }
+      $("tap").addEventListener("click", tapTempo);
+
+      async function testChannel(side) {
+        if (testing || engine.running || engine.starting) return;
+        if (settings.muted || settings.volume === 0) { message("Unmute or raise the volume before testing a channel."); return; }
+        testing = true;
+        try {
+          const played = await engine.preview(side, settings);
+          if (played) {
+            message(`Test click: ${side} channel only. If you hear it in both ears, check that mono audio is off.`);
+            flash(side === "left" ? -1 : 1);
+          }
+        } catch (error) { message(error.message || "Channel test failed.", true); }
+        finally { testing = false; diagnostics(); }
+      }
+      $("testLeft").addEventListener("click", () => testChannel("left"));
+      $("testRight").addEventListener("click", () => testChannel("right"));
+      $("reset").addEventListener("click", () => {
+        engine.stop();
+        settings = { ...DEFAULTS };
+        tapTimes = [];
+        $("tapHint").textContent = "Tap your own pace";
+        $("elapsed").textContent = "00:00";
+        $("clickCount").textContent = "0";
+        engine.update(settings);
+        render();
+        saveSettings();
+        message("Default settings restored.");
+      });
+
+      document.addEventListener("keydown", event => {
+        if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+        if (event.key === "Escape") { engine.stop(); return; }
+        const target = event.target;
+        if (target instanceof Element && target.closest("input, textarea, select, [contenteditable='true']")) return;
+        if (event.code === "Space" && !(target instanceof Element && target.closest("button, a, summary"))) {
+          event.preventDefault();
+          void toggle();
+        } else if (event.key.toLowerCase() === "t") {
+          event.preventDefault();
+          tapTempo();
+        }
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && settings.pauseHidden && (engine.running || engine.starting)) engine.stop("Stopped because you switched tabs or apps. Press Start when you are ready.");
+      });
+      window.addEventListener("pagehide", () => {
+        engine.stop();
+        engine.needsRebuild = true;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch (_) { /* Storage is optional. */ }
+      });
+
+      window.addEventListener("pageshow", () => { diagnostics(); });
+
+      loadSettings();
+      render();
+      playbackUI(false);
+      if (!(window.AudioContext || window.webkitAudioContext)) {
+        $("transport").disabled = true;
+        $("restartAudio").disabled = true;
+        $("testLeft").disabled = true;
+        $("testRight").disabled = true;
+        message("Web Audio is not available. Open this page in a current web browser rather than a file preview.", true);
+      }
+      // Hide only after all controls and event handlers have successfully initialized.
+      $("bootNotice").hidden = true;
+      if (location.protocol === "file:" && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        message("Local-file mode: for reliable playback, open this as a hosted Safari page. File-preview apps may block audio.");
+      }
+    })();
+  </script>
+</body>
+</html>
